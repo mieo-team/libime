@@ -81,6 +81,11 @@ public:
 
     void setFlags(size_t idx, PinyinDictFlags flags);
 
+    // Dictionaries listed highest priority first. A (pinyin, word) found in a listed
+    // dictionary is dropped when an earlier listed, enabled dictionary also has it, so the
+    // higher layer alone decides its cost (it can demote as well as promote). Empty = off.
+    void setOverrideOrder(std::vector<size_t> order);
+
     /**
      * Load text format into the Trie
      *

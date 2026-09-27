@@ -405,6 +405,7 @@ public:
 
     fcitx::ScopedConnection conn_;
     std::vector<PinyinDictFlags> flags_;
+    std::vector<size_t> overrideOrder_;
 };
 
 void PinyinDictionaryPrivate::addEmptyMatch(
@@ -570,9 +571,33 @@ bool PinyinDictionaryPrivate::matchWordsForOnePath(
     const bool matchLongWord =
         (path.path_.back() == &context.graph_.end() && matchLongWordEnabled);
 
-    auto foundOneWord = [&path, &prevNode, &matched, &context](
+    // Higher-priority dictionaries that shadow this one (M2).
+    std::vector<const PinyinTrie *> shadowing;
+    for (size_t idx : overrideOrder_) {
+        if (q->trie(idx) == path.trie()) {
+            break;
+        }
+        if (idx < flags_.size() && !flags_[idx].test(PinyinDictFlag::Disabled)) {
+            shadowing.push_back(q->trie(idx));
+        }
+    }
+    if (shadowing.size() == overrideOrder_.size()) {
+        shadowing.clear(); // this dictionary is not in the order: no override
+    }
+    std::string key;
+    auto foundOneWord = [&path, &prevNode, &matched, &context, &shadowing, &key](
                             std::string_view encodedPinyin, WordNode &word,
                             float cost, bool isCorrection) {
+        if (!shadowing.empty()) {
+            key.assign(encodedPinyin);
+            key.push_back(pinyinHanziSep);
+            key.append(word.word());
+            for (const auto *trie : shadowing) {
+                if (PinyinTrie::isValidRaw(trie->exactMatchSearchRaw(key.data(), key.size()))) {
+                    return;
+                }
+            }
+        }
         if (isCorrection && context.keyCosts_ && !context.keyCosts_->empty()) {
             cost += keyCostAdjustment(context.graph_, path.path_, encodedPinyin,
                                       *context.keyCosts_, context.keyCostOffset_);
@@ -1004,6 +1029,11 @@ bool PinyinDictionary::removeWord(size_t idx, std::string_view fullPinyin,
     result.insert(result.end(), hanzi.begin(), hanzi.end());
     return TrieDictionary::removeWord(
         idx, std::string_view(result.data(), result.size()));
+}
+
+void PinyinDictionary::setOverrideOrder(std::vector<size_t> order) {
+    FCITX_D();
+    d->overrideOrder_ = std::move(order);
 }
 
 void PinyinDictionary::setFlags(size_t idx, PinyinDictFlags flags) {
