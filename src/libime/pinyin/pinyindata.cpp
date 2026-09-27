@@ -1536,17 +1536,11 @@ const PinyinMap &getPinyinMapV2() {
             applyFuzzyToMap(filtered, fz);
         }
 
+        // zc fork: only the jv-for-ju spelling habit stays here. The dropped g (lon, din) and
+        // every hand-written swap are slips, generated once for all syllables by the typing-error
+        // model in PinyinCorrectionProfile (typoedits.h).
         for (auto phase : {
                  FuzzyUpdatePhase::CommonTypo_UV_JQXY,
-                 FuzzyUpdatePhase::CommonTypo_ON_ONG,
-                 FuzzyUpdatePhase::CommonTypo_IN_ING,
-                 FuzzyUpdatePhase::CommonTypo_Swap_NG_UE_UA_UAN,
-                 FuzzyUpdatePhase::CommonTypo_Swap_UANG,
-                 FuzzyUpdatePhase::AdvancedTypo_Swap_XH_UN,
-                 FuzzyUpdatePhase::AdvancedTypo_Swap_Length2,
-                 FuzzyUpdatePhase::AdvancedTypo_Swap_Length3,
-                 FuzzyUpdatePhase::AdvancedTypo_Swap_Length4,
-                 FuzzyUpdatePhase::AdvancedTypo_Swap_XHY_XYH,
              }) {
             applyFuzzyToMap(filtered, phase);
         }

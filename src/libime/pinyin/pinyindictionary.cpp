@@ -222,6 +222,14 @@ size_t fuzzyFactor(PinyinFuzzyFlags flags) {
         flags = flags.unset(PinyinFuzzyFlag::AdvancedTypo);
         factor += PINYIN_ADVACNED_TYPO_FUZZY_FACTOR;
     }
+    if (flags.test(PinyinFuzzyFlag::EditTypo)) {
+        flags = flags.unset(PinyinFuzzyFlag::EditTypo);
+        factor += PINYIN_EDIT_TYPO_FUZZY_FACTOR;
+    }
+    if (flags.test(PinyinFuzzyFlag::Transpose)) {
+        flags = flags.unset(PinyinFuzzyFlag::Transpose);
+        factor += PINYIN_TRANSPOSE_FUZZY_FACTOR;
+    }
     for (auto flat : {PinyinFuzzyFlag::Z_ZH, PinyinFuzzyFlag::C_CH,
                       PinyinFuzzyFlag::S_SH}) {
         if (flags.test(flat)) {

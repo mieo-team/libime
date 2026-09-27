@@ -4,15 +4,19 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 #include "pinyincorrectionprofile.h"
+#include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 #include <fcitx-utils/macros.h>
 #include "pinyindata.h"
 #include "pinyinencoder.h"
+#include "typoedits.h"
 
 namespace libime {
 
@@ -71,24 +75,41 @@ PinyinCorrectionProfile::PinyinCorrectionProfile(
     if (mapping.empty()) {
         return;
     }
-    // Re-map all entry with the correction mapping.
-    std::vector<PinyinEntry> newEntries;
+    // zc fork: the one typing-error model (typoedits.h). Each full syllable gets every single
+    // slip once, charged by its kind: a neighbour for a letter (Correction), two neighbouring
+    // letters swapped (Transpose), a letter dropped or one extra (EditTypo). A replaced key may
+    // land on another syllable (da typed sa); a swap, drop or extra that already spells a
+    // syllable, or only an initial, stays exact. A one-letter initial is never swapped into the
+    // final (hei to ehi): spellings that start inside a final match all over correct input and
+    // made every keystroke of a sentence about 50% slower; sih for shi stays.
+    const auto isSyllable = [d](const std::string &spelling) {
+        auto range = d->pinyinMap_.equal_range(spelling);
+        return std::any_of(range.first, range.second, [](const auto &item) {
+            return item.flags() == PinyinFuzzyFlag::None;
+        });
+    };
+    std::set<std::tuple<std::string, PinyinInitial, PinyinFinal, PinyinFuzzyFlag>> slips;
     for (const auto &item : d->pinyinMap_) {
-        for (size_t i = 0; i < item.pinyin().size(); i++) {
-            auto chr = item.pinyin()[i];
-            auto swap = mapping.find(chr);
-            if (swap == mapping.end() || swap->second.empty()) {
+        const auto &py = item.pinyin();
+        if (item.flags() != PinyinFuzzyFlag::None || py == "ng" || py == "hm" || py == "hng") {
+            continue;
+        }
+        const auto initialSize = PinyinEncoder::initialToString(item.initial()).size();
+        for (const auto &[spelling, kind, at] : oneEdit(py, mapping)) {
+            if (kind == PinyinFuzzyFlag::Transpose && at == 0 && initialSize == 1) {
                 continue;
             }
-            auto newEntry = item.pinyin();
-            for (auto sub : swap->second) {
-                newEntry[i] = sub;
-                newEntries.push_back(
-                    PinyinEntry(newEntry.data(), item.initial(), item.final(),
-                                item.flags() | PinyinFuzzyFlag::Correction));
-                newEntry[i] = chr;
+            const bool replaced = kind == PinyinFuzzyFlag::Correction;
+            if (!replaced && (py.size() < 2 || spelling.size() < 2 || spelling == "zh" ||
+                              spelling == "ch" || spelling == "sh" || isSyllable(spelling))) {
+                continue;
             }
+            slips.emplace(spelling, item.initial(), item.final(), kind);
         }
+    }
+    std::vector<PinyinEntry> newEntries;
+    for (const auto &[spelling, initial, final, kind] : slips) {
+        newEntries.emplace_back(spelling.data(), initial, final, kind);
     }
     for (const auto &newEntry : newEntries) {
         d->pinyinMap_.insert(newEntry);

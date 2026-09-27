@@ -68,6 +68,17 @@ enum class PinyinFuzzyFlag {
      * Enable matching for lower case single pinyin as English letter.
      */
     Letter = 1 << 21,
+    /**
+     * zc fork: match a syllable typed with one letter missing, or with one
+     * extra letter that is a layout neighbour or a doubled key. Spellings come
+     * from the correction profile, so this needs one to be set.
+     */
+    EditTypo = 1 << 22,
+    /**
+     * zc fork: match a syllable typed with two neighbouring letters swapped. Spellings come
+     * from the correction profile (typoedits.h) and replace libime's hand-written swap phases.
+     */
+    Transpose = 1 << 23,
 };
 
 using PinyinFuzzyFlags = fcitx::Flags<PinyinFuzzyFlag>;

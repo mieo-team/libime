@@ -115,7 +115,8 @@ static const auto finalMap = makeBimap<PinyinFinal, std::string>({
     {PinyinFinal::Letter_Y, "Y"}, {PinyinFinal::Letter_Z, "Z"},
 });
 
-static const int maxPinyinLength = 6;
+// 7 = a six-letter syllable plus one extra letter (EditTypo).
+static const int maxPinyinLength = 7;
 
 struct LongestMatchResult {
     bool valid;
@@ -193,15 +194,21 @@ PinyinEncoder::parseUserPinyin(std::string userPinyin,
     const auto end = pinyin.end();
 
     if (!profile) {
-        flags = flags.unset(PinyinFuzzyFlag::Correction);
+        flags = flags.unset(PinyinFuzzyFlag::Correction)
+                    .unset(PinyinFuzzyFlag::EditTypo)
+                    .unset(PinyinFuzzyFlag::Transpose);
     }
+    // Later passes drop the typo flags, so the exact split stays in the graph
+    // even where a longer typo spelling matched first.
     std::vector<PinyinFuzzyFlags> flagsToTry = {flags};
-    if (flags.test(PinyinFuzzyFlag::Correction)) {
-        flagsToTry.push_back(flags.unset(PinyinFuzzyFlag::Correction));
+    const auto noSlip = flags.unset(PinyinFuzzyFlag::EditTypo)
+                            .unset(PinyinFuzzyFlag::Transpose)
+                            .unset(PinyinFuzzyFlag::AdvancedTypo);
+    if (noSlip != flags) {
+        flagsToTry.push_back(noSlip);
     }
-    if (flags.test(PinyinFuzzyFlag::AdvancedTypo)) {
-        flagsToTry.push_back(flags.unset(PinyinFuzzyFlag::AdvancedTypo)
-                                 .unset(PinyinFuzzyFlag::Correction));
+    if (flags.test(PinyinFuzzyFlag::Correction)) {
+        flagsToTry.push_back(noSlip.unset(PinyinFuzzyFlag::Correction));
     }
 
     const auto &pinyinMap = profile ? profile->pinyinMap() : getPinyinMapV2();

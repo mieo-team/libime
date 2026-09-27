@@ -25,6 +25,7 @@ set(LIBIME_PINYIN_SRCS
     shuangpinprofile.cpp
     pinyinprediction.cpp
     pinyincorrectionprofile.cpp
+    typoedits.cpp
     )
 
 ecm_setup_version(PROJECT
