@@ -29,6 +29,9 @@ enum class ShuangpinBuiltinProfile {
     GB,
     // Nine-key: digits 2-9, each standing for its letters. Keys are 1-6 digits long.
     T9,
+    // Shoudao shuangpin (https://shoudaoshuangpin.github.io/): initials on their own keys
+    // (zh/ch/sh -> v/i/e), finals per its table, zero-initial syllables spelled specially.
+    Shoudao,
 };
 
 class ShuangpinProfilePrivate;

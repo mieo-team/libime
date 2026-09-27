@@ -406,6 +406,63 @@ ShuangpinProfile::ShuangpinProfile(
         d->t9_ = true;
         return;
     }
+    if (profile == ShuangpinBuiltinProfile::Shoudao) {
+        // Shoudao shuangpin: two keys per syllable. Initials keep their own key with
+        // zh/ch/sh on v/i/e; finals follow the published table (iong/ong share h,
+        // uang/iang share x, ...); zero-initial syllables have per-syllable spellings.
+        // A single key is an initial-only (or zero-initial) prefix, as in full pinyin.
+        static const std::unordered_map<std::string, std::string> initialKey = {
+            {"zh", "v"}, {"ch", "i"}, {"sh", "e"}};
+        static const std::unordered_map<std::string, std::string> finalKey = {
+            {"a", "a"},   {"ai", "l"},  {"an", "j"},   {"ang", "y"},  {"ao", "d"},
+            {"e", "e"},   {"ei", "m"},  {"en", "k"},   {"eng", "f"},
+            {"i", "i"},   {"ia", "k"},  {"ian", "n"},  {"iang", "x"}, {"iao", "p"},
+            {"ie", "r"},  {"in", "c"},  {"ing", "g"},  {"iong", "h"}, {"iu", "q"},
+            {"o", "o"},   {"ong", "h"}, {"ou", "s"},   {"u", "u"},    {"ua", "w"},
+            {"uai", "g"}, {"uan", "t"}, {"uang", "x"}, {"ui", "v"},   {"un", "z"},
+            {"uo", "o"},  {"v", "v"},   {"ve", "b"},   {"ue", "l"}};
+        static const std::unordered_map<std::string, std::string> zeroCode = {
+            {"a", "aa"},  {"ai", "ai"}, {"an", "an"}, {"ang", "ay"}, {"ao", "ao"},
+            {"e", "ue"},  {"ei", "ui"}, {"en", "en"}, {"eng", "uf"}, {"er", "er"},
+            {"o", "oo"},  {"ou", "ou"}};
+        for (const auto &e : getPinyinMapV2()) {
+            if (e.flags() != PinyinFuzzyFlag::None) continue;
+            const auto &py = e.pinyin();
+            std::string code;
+            if (auto z = zeroCode.find(py); z != zeroCode.end()) {
+                code = z->second;
+            } else {
+                const auto &initialStr = PinyinEncoder::initialToString(e.initial());
+                if (initialStr.empty() || py.size() <= initialStr.size()) continue;
+                auto ik = initialKey.count(initialStr) ? initialKey.at(initialStr)
+                                                       : initialStr;
+                auto f = finalKey.find(py.substr(initialStr.size()));
+                if (f == finalKey.end()) continue;
+                code = ik + f->second;
+            }
+            d->spTable_[code].emplace(PinyinSyllable{e.initial(), e.final()},
+                                      PinyinFuzzyFlags{PinyinFuzzyFlag::None});
+        }
+        // Single-key prefixes: every initial on its key; zero-initial syllables from
+        // the first key of their spelling (a/e/o/u).
+        for (char i = PinyinEncoder::firstInitial; i <= PinyinEncoder::lastInitial; i++) {
+            auto initial = static_cast<PinyinInitial>(i);
+            const auto &initialStr = PinyinEncoder::initialToString(initial);
+            if (initialStr.empty()) continue;
+            auto ik = initialKey.count(initialStr) ? initialKey.at(initialStr) : initialStr;
+            d->spTable_[ik].emplace(PinyinSyllable{initial, PinyinFinal::Invalid},
+                                    PinyinFuzzyFlags{PinyinFuzzyFlag::None});
+        }
+        for (const char *zk : {"a", "e", "o", "u"}) {
+            d->spTable_[zk].emplace(PinyinSyllable{PinyinInitial::Zero, PinyinFinal::Invalid},
+                                    PinyinFuzzyFlags{PinyinFuzzyFlag::None});
+        }
+        for (const auto &sp : d->spTable_) {
+            d->validInitials_.insert(sp.first[0]);
+            for (char ch : sp.first) d->validInputs_.insert(ch);
+        }
+        return;
+    }
     const SP_C *c = nullptr;
     const SP_S *s = nullptr;
     switch (profile) {
