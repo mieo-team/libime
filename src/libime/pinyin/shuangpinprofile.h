@@ -27,6 +27,8 @@ enum class ShuangpinBuiltinProfile {
     PinyinJiajia,
     Xiaohe,
     GB,
+    // Nine-key: digits 2-9, each standing for its letters. Keys are 1-6 digits long.
+    T9,
 };
 
 class ShuangpinProfilePrivate;
@@ -49,6 +51,7 @@ public:
     const TableType &table() const;
     const ValidInputSetType &validInput() const;
     const ValidInputSetType &validInitial() const;
+    bool isT9() const;
 
 private:
     void buildShuangpinTable();

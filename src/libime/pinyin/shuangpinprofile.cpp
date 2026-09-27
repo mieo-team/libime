@@ -43,6 +43,7 @@ public:
     ShuangpinProfile::ValidInputSetType validInputs_;
     ShuangpinProfile::ValidInputSetType validInitials_;
     ShuangpinProfile::TableType spTable_;
+    bool t9_ = false;
 
     void buildShuangpinTable(const PinyinCorrectionProfile *correctionProfile) {
         // Set up valid inputs.
@@ -364,6 +365,47 @@ ShuangpinProfile::ShuangpinProfile(
     const PinyinCorrectionProfile *correctionProfile)
     : d_ptr(std::make_unique<ShuangpinProfilePrivate>()) {
     FCITX_D();
+    if (profile == ShuangpinBuiltinProfile::T9) {
+        // Every syllable under its digit code; every proper prefix too: the initial alone
+        // as "initial, any final", longer prefixes as a partial final.
+        static const char *digits = "22233344455566677778889999";
+        auto code = [](std::string_view s) {
+            std::string r;
+            for (char ch : s) r.push_back(digits[ch - 'a']);
+            return r;
+        };
+        // Each spelling is keyed by its digits and by its letters: a reading picked from the bar
+        // replaces digits with letters, and the rest of the input stays digits.
+        auto add = [d, &code](const std::string &letters, PinyinSyllable syl, PinyinFuzzyFlags flag) {
+            for (const auto &key : {code(letters), letters}) {
+                auto &pys = d->spTable_[key];
+                bool found = false;
+                for (const auto &[s, f] : pys) found |= s == syl && f == flag;
+                if (!found) pys.emplace(syl, flag);
+            }
+        };
+        for (const auto &e : getPinyinMapV2()) {
+            if (e.flags() != PinyinFuzzyFlag::None) continue;
+            const auto &py = e.pinyin();
+            const auto initialSize = PinyinEncoder::initialToString(e.initial()).size();
+            // m, n, r are syllables and initials at once: as in full pinyin, keep only "initial, any
+            // final", or the extra entry stops libime from expanding the initial to every final.
+            add(py, {e.initial(), py.size() == initialSize ? PinyinFinal::Invalid : e.final()}, PinyinFuzzyFlag::None);
+            for (size_t k = 1; k < py.size(); k++) {
+                if (k == initialSize) {
+                    add(py.substr(0, k), {e.initial(), PinyinFinal::Invalid}, PinyinFuzzyFlag::None);
+                } else if (k > initialSize) {
+                    add(py.substr(0, k), {e.initial(), e.final()}, PinyinFuzzyFlag::PartialFinal);
+                }
+            }
+        }
+        for (char ch = '2'; ch <= '9'; ch++) {
+            d->validInputs_.insert(ch);
+            d->validInitials_.insert(ch);
+        }
+        d->t9_ = true;
+        return;
+    }
     const SP_C *c = nullptr;
     const SP_S *s = nullptr;
     switch (profile) {
@@ -512,5 +554,10 @@ const ShuangpinProfile::ValidInputSetType &
 ShuangpinProfile::validInitial() const {
     FCITX_D();
     return d->validInitials_;
+}
+
+bool ShuangpinProfile::isT9() const {
+    FCITX_D();
+    return d->t9_;
 }
 } // namespace libime

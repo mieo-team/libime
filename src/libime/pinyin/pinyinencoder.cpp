@@ -356,6 +356,38 @@ SegmentGraph PinyinEncoder::parseUserShuangpin(std::string userPinyin,
     SegmentGraph result{std::move(userPinyin)};
     auto pinyin = result.data();
 
+    if (sp.isT9()) {
+        // Nine-key: every digit run (1-6 long) that codes some syllable or syllable prefix is an
+        // edge, so the graph holds every segmentation; the decoder picks.
+        const auto &table = sp.table();
+        for (size_t i = 0; i < pinyin.size();) {
+            if (pinyin[i] == '\'') {
+                auto j = i;
+                while (j < pinyin.size() && pinyin[j] == '\'') j++;
+                result.addNext(i, j);
+                i = j;
+                continue;
+            }
+            bool any = false;
+            for (size_t len = 1; len <= 6 && i + len <= pinyin.size(); len++) {
+                if (pinyin[i + len - 1] == '\'') break;
+                auto iter = table.find(std::string(pinyin.substr(i, len)));
+                // A half-typed syllable (partial final) only at the end: mid-input it multiplies
+                // the segmentations without adding readings people type.
+                const bool tail = i + len == pinyin.size();
+                if (iter != table.end() && std::ranges::any_of(iter->second, [flags, tail](const auto &p) {
+                        return flags.test(p.second) && (tail || p.second == PinyinFuzzyFlag::None);
+                    })) {
+                    result.addNext(i, i + len);
+                    any = true;
+                }
+            }
+            if (!any) result.addNext(i, i + 1);
+            i++;
+        }
+        return result;
+    }
+
     // assume user always type valid shuangpin first, if not keep one.
     size_t i = 0;
 
@@ -840,14 +872,14 @@ FuzzyPinyinSyllables<FuzzyValue>
 shuangpinToSyllablesImpl(std::string_view pinyinView,
                          const ShuangpinProfile &sp, PinyinFuzzyFlags flags,
                          const Adjuster &adjuster) {
-    assert(pinyinView.size() <= 2);
+    assert(sp.isT9() || pinyinView.size() <= 2);
     std::string pinyin(pinyinView);
 
     const auto &table = sp.table();
     auto iter = table.find(pinyin);
 
     // Don't match partial final if our shuangpin is full size.
-    if (pinyinView.size() > 1) {
+    if (pinyinView.size() > 1 && !sp.isT9()) {
         // This option is somewhat meaningless in full Shuangpin.
         flags = flags.unset(PinyinFuzzyFlag::PartialFinal);
     }
