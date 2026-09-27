@@ -941,8 +941,10 @@ PinyinDictionary::lookupWord(size_t idx, std::string_view fullPinyin,
         fullPinyin, PinyinFuzzyFlag::VE_UE);
     result.push_back(pinyinHanziSep);
     result.insert(result.end(), hanzi.begin(), hanzi.end());
-    auto value = trie(idx)->exactMatchSearchRaw(result.data(), result.size());
-    if (PinyinTrie::isValidRaw(value)) {
+    // The raw search returns the stored bits as int32; converting that numerically gave every
+    // non-zero cost back as garbage. Use the typed search.
+    auto value = trie(idx)->exactMatchSearch(result.data(), result.size());
+    if (PinyinTrie::isValid(value)) {
         return value;
     }
     return std::nullopt;
