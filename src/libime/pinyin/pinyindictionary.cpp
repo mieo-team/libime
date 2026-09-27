@@ -222,6 +222,13 @@ size_t fuzzyFactor(PinyinFuzzyFlags flags) {
         flags = flags.unset(PinyinFuzzyFlag::AdvancedTypo);
         factor += PINYIN_ADVACNED_TYPO_FUZZY_FACTOR;
     }
+    for (auto flat : {PinyinFuzzyFlag::Z_ZH, PinyinFuzzyFlag::C_CH,
+                      PinyinFuzzyFlag::S_SH}) {
+        if (flags.test(flat)) {
+            flags = flags.unset(flat);
+            factor += PINYIN_FLAT_FUZZY_FACTOR;
+        }
+    }
     if (flags != 0) {
         factor += 1;
     }
@@ -474,7 +481,8 @@ PinyinTriePositions traverseAlongPathOneStepBySyllables(
             } else if (!path.flags_.test(PinyinDictFlag::FullMatch)) {
                 for (char test = PinyinEncoder::firstFinal;
                      test <= PinyinEncoder::lastFinal; test++) {
-                    updateNext(static_cast<PinyinFinal>(test), 1, pos);
+                    updateNext(static_cast<PinyinFinal>(test),
+                               PINYIN_INITIAL_ONLY_FUZZY_FACTOR, pos);
                 }
             }
         }
