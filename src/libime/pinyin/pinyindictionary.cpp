@@ -736,9 +736,15 @@ void PinyinDictionary::matchPrefixImpl(
     //       \           /
     //        -- xian ---
     // We start with start, then xi, then an and xian, then end.
+    // A node is queued once per incoming edge; expand it only the first time, or the queue grows
+    // with the number of paths through the graph (exponential on a dense nine-key graph).
+    std::unordered_set<const SegmentGraphNode *> expanded;
     while (!q.empty()) {
         const auto *currentNode = q.top();
         q.pop();
+        if (!expanded.insert(currentNode).second) {
+            continue;
+        }
 
         // Push successors into the queue.
         for (const auto &node : currentNode->nexts()) {

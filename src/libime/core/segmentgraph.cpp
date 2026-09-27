@@ -67,9 +67,15 @@ size_t SegmentGraph::check(const SegmentGraph &graph) const {
         q;
 
     q.emplace(&start(), &graph.start());
+    // Compare each node once; without this the queue holds one entry per path (exponential on
+    // a dense graph such as nine-key's).
+    std::unordered_set<const SegmentGraphNode *> compared;
     while (!q.empty()) {
         auto [old, now] = q.top();
         q.pop();
+        if (!compared.insert(old).second) {
+            continue;
+        }
         do {
             assert(old->index() == now->index());
             if (old->nextSize() != now->nextSize()) {
