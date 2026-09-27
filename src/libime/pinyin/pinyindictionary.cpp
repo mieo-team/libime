@@ -314,7 +314,9 @@ public:
           flags_(matchState->fuzzyFlags()),
           spProfile_(matchState->shuangpinProfile()),
           correctionProfile_(matchState->correctionProfile()),
-          partialLongWordLimit_(matchState->partialLongWordLimit()) {}
+          partialLongWordLimit_(matchState->partialLongWordLimit()),
+          keyCosts_(&matchState->keyCosts()),
+          keyCostOffset_(matchState->keyCostOffset()) {}
 
     explicit PinyinMatchContext(
         const SegmentGraph &graph, const GraphMatchCallback &callback,
@@ -337,7 +339,47 @@ public:
     std::shared_ptr<const ShuangpinProfile> spProfile_;
     std::shared_ptr<const PinyinCorrectionProfile> correctionProfile_;
     size_t partialLongWordLimit_ = 0;
+    const PinyinMatchState::KeyCosts *keyCosts_ = nullptr;
+    size_t keyCostOffset_ = 0;
 };
+
+// A correction syllable is charged a flat 10 fuzzies. When the caller knows where each key
+// was touched, charge the actual log10 P(intended key|touch) - log10 P(typed key|touch) of
+// the one substituted keystroke instead. Applied after the string-keyed caches, since the
+// same syllable string at another position has different touches.
+float keyCostAdjustment(const SegmentGraph &graph, const SegmentGraphPath &path,
+                        std::string_view encodedPinyin,
+                        const PinyinMatchState::KeyCosts &costs, size_t offset) {
+    float adjust = 0;
+    size_t syl = 0;
+    for (size_t k = 0; k + 1 < path.size() && (syl * 2) + 1 < encodedPinyin.size(); k++) {
+        auto typed = graph.segment(*path[k], *path[k + 1]);
+        if (typed.starts_with('\'')) {
+            continue;
+        }
+        auto intended = PinyinEncoder::initialFinalToPinyinString(
+            static_cast<PinyinInitial>(encodedPinyin[syl * 2]),
+            static_cast<PinyinFinal>(encodedPinyin[(syl * 2) + 1]));
+        syl++;
+        if (typed.size() != intended.size()) {
+            continue;
+        }
+        size_t diff = typed.size(), count = 0;
+        for (size_t i = 0; i < typed.size(); i++) {
+            if (typed[i] != intended[i]) {
+                diff = i;
+                count++;
+            }
+        }
+        const size_t pos = offset + path[k]->index() + diff;
+        const char want = diff < intended.size() ? intended[diff] : 0;
+        if (count == 1 && pos < costs.size() && want >= 'a' && want <= 'z') {
+            adjust += costs[pos][want - 'a'] -
+                      (PINYIN_CORRECTION_FUZZY_FACTOR * fuzzyCost);
+        }
+    }
+    return adjust;
+}
 
 class PinyinDictionaryPrivate : fcitx::QPtrHolder<PinyinDictionary> {
 public:
@@ -531,6 +573,10 @@ bool PinyinDictionaryPrivate::matchWordsForOnePath(
     auto foundOneWord = [&path, &prevNode, &matched, &context](
                             std::string_view encodedPinyin, WordNode &word,
                             float cost, bool isCorrection) {
+        if (isCorrection && context.keyCosts_ && !context.keyCosts_->empty()) {
+            cost += keyCostAdjustment(context.graph_, path.path_, encodedPinyin,
+                                      *context.keyCosts_, context.keyCostOffset_);
+        }
         context.callback_(path.path_, word, cost,
                           std::make_unique<PinyinLatticeNodePrivate>(
                               encodedPinyin, isCorrection));

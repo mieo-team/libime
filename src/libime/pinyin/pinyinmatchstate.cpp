@@ -74,6 +74,26 @@ size_t PinyinMatchState::partialLongWordLimit() const {
     return d->context_->ime()->partialLongWordLimit();
 }
 
+void PinyinMatchState::setKeyCosts(KeyCosts costs) {
+    FCITX_D();
+    d->keyCosts_ = std::move(costs);
+}
+
+const PinyinMatchState::KeyCosts &PinyinMatchState::keyCosts() const {
+    FCITX_D();
+    return d->keyCosts_;
+}
+
+void PinyinMatchState::setKeyCostOffset(size_t offset) {
+    FCITX_D();
+    d->keyCostOffset_ = offset;
+}
+
+size_t PinyinMatchState::keyCostOffset() const {
+    FCITX_D();
+    return d->keyCostOffset_;
+}
+
 void PinyinMatchState::discardDictionary(size_t idx) {
     FCITX_D();
     d->matchCacheMap_.erase(d->context_->ime()->dict()->trie(idx));

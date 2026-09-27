@@ -451,6 +451,11 @@ bool PinyinContext::useShuangpin() const {
     return d->sp_;
 }
 
+void PinyinContext::setKeyCosts(PinyinMatchState::KeyCosts costs) {
+    FCITX_D();
+    d->matchState_.setKeyCosts(std::move(costs));
+}
+
 void PinyinContext::setMaxSentenceLength(int length) {
     FCITX_D();
     d->maxSentenceLength_ = length;
@@ -683,6 +688,15 @@ void PinyinContext::update() {
         State state = this->state();
         if (!d->selected_.empty()) {
             start = d->selected_.back().back().offset_;
+        }
+        if (start != d->matchState_.keyCostOffset()) {
+            // Positions now mean something else: nodes that look the same carry costs of other keys.
+            if (!d->matchState_.keyCosts().empty()) {
+                d->lattice_.clear();
+                d->matchState_.clear();
+                d->segs_ = SegmentGraph();
+            }
+            d->matchState_.setKeyCostOffset(start);
         }
         SegmentGraph newGraph;
         if (auto spProfile = d->matchState_.shuangpinProfile()) {

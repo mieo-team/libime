@@ -19,6 +19,7 @@
 #include <libime/core/languagemodel.h>
 #include <libime/core/lattice.h>
 #include <libime/pinyin/libimepinyin_export.h>
+#include <libime/pinyin/pinyinmatchstate.h>
 #include "libime/core/historybigram.h"
 
 namespace libime {
@@ -39,6 +40,9 @@ public:
 
     int maxSentenceLength() const;
     void setMaxSentenceLength(int length);
+
+    // Per-keystroke correction costs, one entry per input byte (see PinyinMatchState).
+    void setKeyCosts(PinyinMatchState::KeyCosts costs);
 
     const std::vector<SentenceResult> &candidates() const;
 

@@ -6,9 +6,11 @@
 #ifndef _FCITX_LIBIME_PINYIN_PINYINMATCHSTATE_H_
 #define _FCITX_LIBIME_PINYIN_PINYINMATCHSTATE_H_
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <unordered_set>
+#include <vector>
 #include <fcitx-utils/macros.h>
 #include <libime/pinyin/libimepinyin_export.h>
 #include <libime/pinyin/pinyinencoder.h>
@@ -25,6 +27,9 @@ class LIBIMEPINYIN_EXPORT PinyinMatchState {
     friend class PinyinMatchContext;
 
 public:
+    // Per input position: log10 P(key|touch) - log10 P(typed key|touch) for a..z.
+    using KeyCosts = std::vector<std::array<float, 26>>;
+
     PinyinMatchState(PinyinContext *context);
     ~PinyinMatchState();
 
@@ -42,6 +47,14 @@ public:
     std::shared_ptr<const ShuangpinProfile> shuangpinProfile() const;
     std::shared_ptr<const PinyinCorrectionProfile> correctionProfile() const;
     size_t partialLongWordLimit() const;
+
+    // Replaces the flat correction cost with a per-keystroke one; empty = flat.
+    void setKeyCosts(KeyCosts costs);
+    const KeyCosts &keyCosts() const;
+    // Input offset of the graph being matched: after a selection the context re-parses only the
+    // rest of the input, so graph positions start at 0 there while key costs index the whole input.
+    void setKeyCostOffset(size_t offset);
+    size_t keyCostOffset() const;
 
 private:
     std::unique_ptr<PinyinMatchStatePrivate> d_ptr;

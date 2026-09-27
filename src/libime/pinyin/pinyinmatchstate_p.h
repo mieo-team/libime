@@ -122,6 +122,8 @@ public:
     NodeToMatchedPinyinPathsMap matchedPaths_;
     PinyinTrieNodeCache nodeCacheMap_;
     PinyinMatchResultCache matchCacheMap_;
+    PinyinMatchState::KeyCosts keyCosts_;
+    size_t keyCostOffset_ = 0;
 };
 } // namespace libime
 
