@@ -11,6 +11,7 @@ set(LIBIME_PINYIN_HDRS
     shuangpindata.h
     shuangpinprofile.h
     pinyincorrectionprofile.h
+    pinyinrepair.h
     ${CMAKE_CURRENT_BINARY_DIR}/libimepinyin_export.h
     )
 
@@ -25,6 +26,7 @@ set(LIBIME_PINYIN_SRCS
     shuangpinprofile.cpp
     pinyinprediction.cpp
     pinyincorrectionprofile.cpp
+    pinyinrepair.cpp
     typoedits.cpp
     )
 

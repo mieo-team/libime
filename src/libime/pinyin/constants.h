@@ -25,6 +25,9 @@ constexpr int PINYIN_INITIAL_ONLY_FUZZY_FACTOR = 3;
 // and 13 omissions, 7 breaks none and nets +29 swapped words in 3000, 10 loses the common
 // swaps (hsi, gne) to an initial-only split.
 constexpr int PINYIN_TRANSPOSE_FUZZY_FACTOR = 7;
+// zc fork: log10 penalty for decoding a one-edit repair (PinyinRepair) instead of the input.
+// 3 corrects about 100 more swaps in 3000 words but breaks 17 omissions; 4 breaks 6, 2 breaks 100.
+constexpr float PINYIN_REPAIR_PENALTY = 4;
 } // namespace libime
 
 #endif // _FCITX_LIBIME_PINYIN_CONSTANTS_H_
