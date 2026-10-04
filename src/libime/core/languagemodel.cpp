@@ -45,12 +45,26 @@ public:
     std::string file_;
     mutable bool predictionLoaded_ = false;
     mutable DATrie<float> prediction_;
+    std::function<std::unique_ptr<std::istream>()> predictionSource_;
 };
 
-StaticLanguageModelFile::StaticLanguageModelFile(const char *file) {
+StaticLanguageModelFile::StaticLanguageModelFile(const char *file)
+    : StaticLanguageModelFile(file, 0, 0) {}
+
+StaticLanguageModelFile::StaticLanguageModelFile(const char *file,
+                                                 uint64_t offset,
+                                                 uint64_t length) {
     lm::ngram::Config config;
     config.sentence_marker_missing = lm::SILENT;
+    config.file_offset = offset;
+    config.file_length = length;
     d_ptr = std::make_unique<StaticLanguageModelFilePrivate>(file, config);
+}
+
+void StaticLanguageModelFile::setPredictionSource(
+    std::function<std::unique_ptr<std::istream>()> open) {
+    FCITX_D();
+    d->predictionSource_ = std::move(open);
 }
 
 StaticLanguageModelFile::~StaticLanguageModelFile() {}
@@ -60,11 +74,16 @@ const DATrie<float> &StaticLanguageModelFile::predictionTrie() const {
     if (!d->predictionLoaded_) {
         d->predictionLoaded_ = true;
         try {
-            std::ifstream fin;
-            fin.open(d->file_ + ".predict", std::ios::in | std::ios::binary);
-            if (fin) {
+            std::unique_ptr<std::istream> in;
+            if (d->predictionSource_) {
+                in = d->predictionSource_();
+            } else {
+                in = std::make_unique<std::ifstream>(
+                    d->file_ + ".predict", std::ios::in | std::ios::binary);
+            }
+            if (in && *in) {
                 DATrie<float> trie;
-                trie.load(fin);
+                trie.load(*in);
                 d->prediction_ = std::move(trie);
             }
         } catch (...) {

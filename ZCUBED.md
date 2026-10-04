@@ -16,6 +16,8 @@ changed code is marked `zc fork:` where it is not self-evident.
 | Flat fuzzy (z/zh, c/ch, s/sh) and initial-only syllables weighed at 3 fuzzies | `pinyin/constants.h`, `pinyin/pinyindictionary.cpp` |
 | One typing-error model: neighbour, dropped or extra letter, swapped letters (`typoedits.h`, flags `EditTypo`, `Transpose`); replaces the hand-written CommonTypo/AdvancedTypo tables except jv/qv/xv/yv | `pinyin/typoedits.*`, `pinyin/pinyincorrectionprofile.cpp`, `pinyin/pinyindata.cpp`, `pinyin/pinyinencoder.*`, `pinyin/pinyindictionary.cpp`, `pinyin/constants.h` |
 | One-slip repair of a badly split input (`PinyinRepair`) | `pinyin/pinyinrepair.*`, `pinyin/constants.h` |
+| Language model mapped where it sits inside another file, e.g. an uncompressed APK entry (`StaticLanguageModelFile(file, offset, length)`), prediction table from another source (`setPredictionSource`); needs the KenLM change below | `core/languagemodel.*` |
+| KenLM: read a binary model from a byte range of a larger file (`Config::file_offset`, `file_length`) | submodule `core/kenlm`: `lm/config.*`, `lm/binary_format.*`, `lm/model.cc` |
 
 Building: the same as upstream. ZCubed compiles `src/libime/core` and `src/libime/pinyin` from this
 tree with the Android NDK, against the boost and zstd builds of fcitx5-android/prebuilt and the

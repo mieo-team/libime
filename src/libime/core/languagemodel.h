@@ -8,6 +8,9 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <istream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -57,9 +60,17 @@ class LIBIMECORE_EXPORT StaticLanguageModelFile {
 
 public:
     explicit StaticLanguageModelFile(const char *file);
+    // The model is the byte range [offset, offset + length) of file, e.g. an
+    // uncompressed entry of an Android APK, mapped where it sits (length 0:
+    // to the end of the file). The prediction table is then not looked up
+    // next to it; give its source with setPredictionSource().
+    StaticLanguageModelFile(const char *file, uint64_t offset, uint64_t length);
     virtual ~StaticLanguageModelFile();
 
     const DATrie<float> &predictionTrie() const;
+    // Where the prediction table comes from instead of file + ".predict".
+    // Opened on first use, as the file is.
+    void setPredictionSource(std::function<std::unique_ptr<std::istream>()> open);
 
 private:
     std::unique_ptr<StaticLanguageModelFilePrivate> d_ptr;

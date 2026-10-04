@@ -1,3 +1,4 @@
 [submodule "src/libime/kenlm"]
 	path = src/libime/core/kenlm
-	url = https://github.com/kpu/kenlm.git
+	url = https://github.com/mieo-team/kenlm.git
+	branch = zcubed
