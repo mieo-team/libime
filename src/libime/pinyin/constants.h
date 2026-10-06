@@ -20,6 +20,14 @@ constexpr int PINYIN_FLAT_FUZZY_FACTOR = 3;
 // read as one more abbreviated character; 3 corrects more swaps and omissions
 // without losing mixed abbreviations, 5 starts to.
 constexpr int PINYIN_INITIAL_ONLY_FUZZY_FACTOR = 3;
+// zc fork: a half-typed final before the end of a nine-key input (64426 read as
+// min'gan, 敏感 0.015 ahead of 你好 at the shared single fuzzy) costs as much as a
+// syllable typed as its initial; the last syllable is still being typed and keeps
+// the shared fuzzy. Typed key by key, 3 gains 48 first choices in 3000 common words
+// and loses 1 (4265494 now 好记性, a better-scoring path the old pruning hid), and
+// gains 9 of the first 255 sentences with none lost; 5 and 7 gain a few more words
+// but would weigh half a final above the bare initial.
+constexpr int PINYIN_T9_INNER_PARTIAL_FUZZY_FACTOR = 3;
 // zc fork: two neighbouring letters swapped (PinyinFuzzyFlag::Transpose). Against the
 // hand-written swap tables it replaces: 5 breaks a correctly typed word (gezia read as zai)
 // and 13 omissions, 7 breaks none and nets +29 swapped words in 3000, 10 loses the common

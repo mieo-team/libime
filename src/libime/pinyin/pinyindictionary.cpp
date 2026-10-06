@@ -46,6 +46,7 @@
 #include "pinyindecoder_p.h"
 #include "pinyinencoder.h"
 #include "pinyinmatchstate_p.h"
+#include "shuangpinprofile.h"
 
 namespace libime {
 
@@ -358,6 +359,16 @@ public:
     size_t keyCostOffset_ = 0;
 };
 
+namespace {
+
+// zc fork: the last segment of a nine-key input (see findMatchesBetween).
+bool isT9Last(const PinyinMatchContext &context, const SegmentGraphNode &node) {
+    return context.spProfile_ && context.spProfile_->isT9() &&
+           &node == &context.graph_.end();
+}
+
+} // namespace
+
 // A correction syllable is charged a flat 10 fuzzies. When the caller knows where each key
 // was touched, charge the actual log10 P(intended key|touch) - log10 P(typed key|touch) of
 // the one substituted keystroke instead. Applied after the string-keyed caches, since the
@@ -453,9 +464,11 @@ void PinyinDictionaryPrivate::addEmptyMatch(
     }
 }
 
+// zc fork: partialFinal, when not 0, is what a syllable matched through PartialFinal
+// costs instead of the shared fuzzy (see findMatchesBetween).
 PinyinTriePositions traverseAlongPathOneStepBySyllables(
     const MatchedPinyinPath &path,
-    const MatchedPinyinSyllablesWithFuzzyFlags &syls) {
+    const MatchedPinyinSyllablesWithFuzzyFlags &syls, size_t partialFinal = 0) {
     PinyinTriePositions positions;
     for (const auto &pr : path.triePositions()) {
         uint64_t _pos;
@@ -484,7 +497,14 @@ PinyinTriePositions traverseAlongPathOneStepBySyllables(
             };
             if (finals.size() > 1 || finals[0].first != PinyinFinal::Invalid) {
                 for (auto final : finals) {
-                    updateNext(final.first, fuzzyFactor(final.second), pos);
+                    auto factor = fuzzyFactor(final.second);
+                    if (partialFinal &&
+                        final.second.test(PinyinFuzzyFlag::PartialFinal)) {
+                        factor = fuzzyFactor(final.second.unset(
+                                     PinyinFuzzyFlag::PartialFinal)) +
+                                 partialFinal;
+                    }
+                    updateNext(final.first, factor, pos);
                 }
             } else if (!path.flags_.test(PinyinDictFlag::FullMatch)) {
                 for (char test = PinyinEncoder::firstFinal;
@@ -627,7 +647,7 @@ bool PinyinDictionaryPrivate::matchWordsForOnePath(
         }
     };
 
-    if (context.matchCacheMap_) {
+    if (context.matchCacheMap_ && !isT9Last(context, *path.path_.back())) {
         auto &matchCache = (*context.matchCacheMap_)[path.trie()];
         auto *result =
             matchCache.find(path.path_, context.hasher_, context.hasher_);
@@ -710,6 +730,18 @@ void PinyinDictionaryPrivate::findMatchesBetween(
                   pinyin, *context.spProfile_, context.flags_)
             : PinyinEncoder::stringToSyllablesWithFuzzyFlags(
                   pinyin, context.correctionProfile_.get(), context.flags_);
+    // zc fork: on nine-key, a syllable before the end of the input that is only the start
+    // of a final (64426 read as min'gan, 敏感 over 你好) costs as much as a syllable typed
+    // as its initial; the last one is still being typed and keeps the shared fuzzy.
+    // Whether a segment is last is not in the cache keys (pinyin strings only), so the
+    // last segment on nine-key neither reads nor fills them. The end node is discarded
+    // on every keystroke (SegmentGraph::merge), so a segment that stops being last is
+    // matched again.
+    const bool t9Last = isT9Last(context, currentNode);
+    const size_t partialFinal =
+        context.spProfile_ && context.spProfile_->isT9() && !t9Last
+            ? PINYIN_T9_INNER_PARTIAL_FUZZY_FACTOR
+            : 0;
     const MatchedPinyinPaths &prevMatchedPaths = matchedPathsMap[&prevNode];
     MatchedPinyinPaths newPaths;
     for (const auto &path : prevMatchedPaths) {
@@ -718,7 +750,7 @@ void PinyinDictionaryPrivate::findMatchesBetween(
         segmentPath.push_back(&currentNode);
 
         // A map from trie (dict) to a lru cache.
-        if (context.nodeCacheMap_) {
+        if (context.nodeCacheMap_ && !t9Last) {
             auto &nodeCache = (*context.nodeCacheMap_)[path.trie()];
             auto *p =
                 nodeCache.find(segmentPath, context.hasher_, context.hasher_);
@@ -729,7 +761,7 @@ void PinyinDictionaryPrivate::findMatchesBetween(
                 nodeCache.insert(context.hasher_.pathToPinyins(segmentPath),
                                  result);
                 result->triePositions_ =
-                    traverseAlongPathOneStepBySyllables(path, syls);
+                    traverseAlongPathOneStepBySyllables(path, syls, partialFinal);
             } else {
                 result = *p;
                 assert(result->size_ == path.size() + 1);
@@ -744,7 +776,7 @@ void PinyinDictionaryPrivate::findMatchesBetween(
                                   path.flags_);
 
             newPaths.back().result_->triePositions_ =
-                traverseAlongPathOneStepBySyllables(path, syls);
+                traverseAlongPathOneStepBySyllables(path, syls, partialFinal);
             // if there's nothing, pop it.
             if (newPaths.back().triePositions().empty()) {
                 newPaths.pop_back();
