@@ -11,6 +11,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <fcitx-utils/macros.h>
 #include <libime/pinyin/libimepinyin_export.h>
 #include <libime/pinyin/pinyincorrectionprofile.h>
@@ -29,9 +30,19 @@ enum class ShuangpinBuiltinProfile {
     GB,
     // Nine-key: digits 2-9, each standing for its letters. Keys are 1-6 digits long.
     T9,
-    // Shoudao shuangpin (https://shoudaoshuangpin.github.io/): initials on their own keys
-    // (zh/ch/sh -> v/i/e), finals per its table, zero-initial syllables spelled specially.
-    Shoudao,
+};
+
+// zc fork: a two-key scheme whose keys the caller gives, laid out like Shoudao shuangpin
+// (https://shoudaoshuangpin.github.io/); ZCubed reads them from spec/shuangpin/*.json so the
+// key faces and the decoder share one table. initialKeys maps a multi-letter initial to its
+// key (zh -> v); every other initial keeps its own letter. finalKeys maps a final to its key
+// (several finals may share one: ong -> h, iong -> h). zeroSpellings maps a zero-initial
+// syllable to its two keys (ang -> ay). A single key is an initial-only prefix, and also a
+// zero-initial prefix when some zero-initial spelling starts with it.
+struct ShuangpinTables {
+    std::unordered_map<std::string, std::string> initialKeys;
+    std::unordered_map<std::string, std::string> finalKeys;
+    std::unordered_map<std::string, std::string> zeroSpellings;
 };
 
 class ShuangpinProfilePrivate;
@@ -48,6 +59,7 @@ public:
                               const PinyinCorrectionProfile *correctionProfile);
     explicit ShuangpinProfile(std::istream &in,
                               const PinyinCorrectionProfile *correctionProfile);
+    explicit ShuangpinProfile(const ShuangpinTables &tables);
 
     FCITX_DECLARE_VIRTUAL_DTOR_COPY_AND_MOVE(ShuangpinProfile)
 

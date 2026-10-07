@@ -12,7 +12,7 @@ changed code is marked `zc fork:` where it is not self-evident.
 | Per-keystroke correction costs (`PinyinContext::setKeyCosts`) | `pinyin/pinyincontext.*`, `pinyin/pinyinmatchstate*`, `pinyin/pinyindictionary.cpp` |
 | Sub-dictionary override order (`PinyinDictionary::setOverrideOrder`) | `pinyin/pinyindictionary.*` |
 | Nine-key input as a shuangpin profile (`ShuangpinBuiltinProfile::T9`) | `pinyin/shuangpinprofile.*`, `pinyin/pinyinencoder.cpp` |
-| Shoudao shuangpin profile (`ShuangpinBuiltinProfile::Shoudao`) | `pinyin/shuangpinprofile.*` |
+| Two-key shuangpin from tables the caller gives (`ShuangpinProfile(const ShuangpinTables &)`; ZCubed passes Shoudao from its `spec/shuangpin/shoudao.json`, so key faces and decoder share one table) | `pinyin/shuangpinprofile.*` |
 | Flat fuzzy (z/zh, c/ch, s/sh) and initial-only syllables weighed at 3 fuzzies | `pinyin/constants.h`, `pinyin/pinyindictionary.cpp` |
 | One typing-error model: neighbour, dropped or extra letter, swapped letters (`typoedits.h`, flags `EditTypo`, `Transpose`); replaces the hand-written CommonTypo/AdvancedTypo tables except jv/qv/xv/yv | `pinyin/typoedits.*`, `pinyin/pinyincorrectionprofile.cpp`, `pinyin/pinyindata.cpp`, `pinyin/pinyinencoder.*`, `pinyin/pinyindictionary.cpp`, `pinyin/constants.h` |
 | One-slip repair of a badly split input (`PinyinRepair`) | `pinyin/pinyinrepair.*`, `pinyin/constants.h` |
