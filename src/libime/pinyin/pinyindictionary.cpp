@@ -495,23 +495,30 @@ PinyinTriePositions traverseAlongPathOneStepBySyllables(
                     positions.emplace_back(pos, newFuzzies);
                 }
             };
-            if (finals.size() > 1 || finals[0].first != PinyinFinal::Invalid) {
-                for (auto final : finals) {
-                    auto factor = fuzzyFactor(final.second);
-                    if (partialFinal &&
-                        final.second.test(PinyinFuzzyFlag::PartialFinal)) {
-                        factor = fuzzyFactor(final.second.unset(
-                                     PinyinFuzzyFlag::PartialFinal)) +
-                                 partialFinal;
+            // zc fork: the initial-only reading can share this initial with a corrected
+            // or fuzzy reading of the same letters (sh is also su with h taken for the
+            // neighbouring u, then s/sh flat). It was expanded only when it stood alone,
+            // so sh, zh and ch typed as abbreviations lost every word starting with them.
+            for (auto final : finals) {
+                if (final.first == PinyinFinal::Invalid) {
+                    if (path.flags_.test(PinyinDictFlag::FullMatch)) {
+                        continue;
                     }
-                    updateNext(final.first, factor, pos);
+                    for (char test = PinyinEncoder::firstFinal;
+                         test <= PinyinEncoder::lastFinal; test++) {
+                        updateNext(static_cast<PinyinFinal>(test),
+                                   PINYIN_INITIAL_ONLY_FUZZY_FACTOR, pos);
+                    }
+                    continue;
                 }
-            } else if (!path.flags_.test(PinyinDictFlag::FullMatch)) {
-                for (char test = PinyinEncoder::firstFinal;
-                     test <= PinyinEncoder::lastFinal; test++) {
-                    updateNext(static_cast<PinyinFinal>(test),
-                               PINYIN_INITIAL_ONLY_FUZZY_FACTOR, pos);
+                auto factor = fuzzyFactor(final.second);
+                if (partialFinal &&
+                    final.second.test(PinyinFuzzyFlag::PartialFinal)) {
+                    factor = fuzzyFactor(final.second.unset(
+                                 PinyinFuzzyFlag::PartialFinal)) +
+                             partialFinal;
                 }
+                updateNext(final.first, factor, pos);
             }
         }
     }
