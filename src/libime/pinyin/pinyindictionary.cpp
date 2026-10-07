@@ -496,12 +496,27 @@ PinyinTriePositions traverseAlongPathOneStepBySyllables(
                 }
             };
             // zc fork: the initial-only reading can share this initial with a corrected
-            // or fuzzy reading of the same letters (sh is also su with h taken for the
-            // neighbouring u, then s/sh flat). It was expanded only when it stood alone,
-            // so sh, zh and ch typed as abbreviations lost every word starting with them.
+            // reading of the same letters (sh is also su with h taken for the neighbouring
+            // u, then shu through s/sh flat). It was expanded only when it stood alone, so
+            // with key correction on, sh, zh and ch typed as abbreviations lost every word
+            // starting with them. Expand it next to a corrected reading too. Key correction
+            // is full pinyin only; nine-key keeps the old rule (there 74 shares SH with si
+            // read flat as shi, and expanding it cost more nine-key words than it gained).
+            // Once expanded it reaches every final at PINYIN_INITIAL_ONLY_FUZZY_FACTOR,
+            // so an explicit final in the same group costing that much or more would
+            // only walk the same position again, dearer.
+            const bool expandsAll =
+                !path.flags_.test(PinyinDictFlag::FullMatch) &&
+                std::any_of(finals.begin(), finals.end(), [](const auto &final) {
+                    return final.first == PinyinFinal::Invalid;
+                }) &&
+                (finals.size() == 1 ||
+                 std::any_of(finals.begin(), finals.end(), [](const auto &final) {
+                     return final.second.test(PinyinFuzzyFlag::Correction);
+                 }));
             for (auto final : finals) {
                 if (final.first == PinyinFinal::Invalid) {
-                    if (path.flags_.test(PinyinDictFlag::FullMatch)) {
+                    if (!expandsAll) {
                         continue;
                     }
                     for (char test = PinyinEncoder::firstFinal;
@@ -517,6 +532,9 @@ PinyinTriePositions traverseAlongPathOneStepBySyllables(
                     factor = fuzzyFactor(final.second.unset(
                                  PinyinFuzzyFlag::PartialFinal)) +
                              partialFinal;
+                }
+                if (expandsAll && factor >= PINYIN_INITIAL_ONLY_FUZZY_FACTOR) {
+                    continue;
                 }
                 updateNext(final.first, factor, pos);
             }

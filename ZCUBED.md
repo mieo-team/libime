@@ -19,7 +19,7 @@ changed code is marked `zc fork:` where it is not self-evident.
 | Language model mapped where it sits inside another file, e.g. an uncompressed APK entry (`StaticLanguageModelFile(file, offset, length)`), prediction table from another source (`setPredictionSource`); needs the KenLM change below | `core/languagemodel.*` |
 | KenLM: read a binary model from a byte range of a larger file (`Config::file_offset`, `file_length`) | submodule `core/kenlm`: `lm/config.*`, `lm/binary_format.*`, `lm/model.cc` |
 | Nine-key: a half-typed final before the end of the input weighed like an initial-only syllable; the last segment skips the pinyin-keyed match caches | `pinyin/constants.h`, `pinyin/pinyindictionary.cpp` |
-| An initial-only syllable is expanded even when a corrected or fuzzy reading shares its initial (sh, zh, ch typed as abbreviations with key correction and flat fuzzy on) | `pinyin/pinyindictionary.cpp` |
+| An initial-only syllable is expanded even when a key-corrected reading shares its initial (sh, zh, ch typed as abbreviations with key correction and flat fuzzy on; nine-key unchanged), and explicit finals it already covers at no lower cost are not walked again | `pinyin/pinyindictionary.cpp` |
 
 Building: the same as upstream. ZCubed compiles `src/libime/core` and `src/libime/pinyin` from this
 tree with the Android NDK, against the boost and zstd builds of fcitx5-android/prebuilt and the
